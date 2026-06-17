@@ -161,6 +161,133 @@ function baslikSatirinibul(satirlar) {
     return 0;
 }
 
+// ========== GEMINI AI ILE AKILLI ALGILAMA ==========
+// Excel verisini Gemini'ye gonderir, "her satir hangi il/ilce/kisi" kararini ona verir
+async function geminiIleAlgila(satirlar, tip) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        throw new Error('GEMINI_API_KEY .env dosyasında tanımlı değil. Sistem yöneticisine başvurun.');
+    }
+
+    // Satirlari CSV gibi metin yap (sadece dolu olanlari, ilk 100 satir)
+    const ilkN = satirlar.slice(0, Math.min(satirlar.length, 100));
+    const veriMetni = ilkN
+        .map((row, idx) => `Satır ${idx + 1}: ` + row.map(c => String(c || '').trim()).filter(c => c).join(' | '))
+        .filter(s => s.length > 10)
+        .join('\n');
+
+    if (!veriMetni.trim()) {
+        throw new Error('Excel dosyası boş veya okunamadı.');
+    }
+
+    const istek = tip === 'il'
+        ? `Aşağıdaki Excel verisini analiz et. Bu Türkiye il başkanları/sorumluları listesi.
+Her bir il için aşağıdaki bilgileri çıkar (sadece bulabildiğin alanları):
+- il_adi: il adı (zorunlu)
+- baskan_ad_soyad: kişinin adı ve soyadı
+- baskan_telefon: telefon numarası
+- baskan_tc: 11 haneli TC kimlik no
+- instagram_url: instagram hesabı
+- twitter_url: twitter/x hesabı
+- facebook_url: facebook hesabı
+- tiktok_url: tiktok hesabı
+
+ÖNEMLİ KURALLAR:
+- Sadece JSON dizisi döndür, başka açıklama YAZMA
+- Format: [{"il_adi":"Ordu","baskan_ad_soyad":"Ahmet Yılmaz",...}, ...]
+- Bilgi yoksa o alanı koyma (null değil, hiç koyma)
+- İl isimleri Türkçe karakterlerle olmalı (Ordu, İstanbul, Şanlıurfa gibi)
+- Sosyal medya: sadece kullanıcı adı yazılıysa @işareti veya tam URL olmasa bile aynen yaz
+
+Excel verisi:
+${veriMetni}`
+        : `Aşağıdaki Excel verisini analiz et. Bu Türkiye ilçe başkanları/sorumluları listesi.
+Her bir ilçe için aşağıdaki bilgileri çıkar:
+- il_adi: ilçenin bağlı olduğu il adı (zorunlu)
+- ilce_adi: ilçe adı (zorunlu)
+- baskan_ad_soyad: kişinin adı ve soyadı
+- baskan_telefon: telefon numarası
+- baskan_tc: 11 haneli TC kimlik no
+- instagram_url, twitter_url, facebook_url, tiktok_url: sosyal medya hesapları
+
+ÖNEMLİ KURALLAR:
+- Sadece JSON dizisi döndür, başka açıklama YAZMA
+- Format: [{"il_adi":"Ordu","ilce_adi":"Altınordu",...}, ...]
+- Bilgi yoksa o alanı koyma
+- Aynı il altında birden çok ilçe olabilir (excel'de il bir kere yazılıp altına ilçeler dizilmiş olabilir) - her ilçe için il_adi'nı tekrar yaz
+- İl ve ilçe isimleri Türkçe karakterlerle (Ordu/Altınordu, İstanbul/Beyoğlu gibi)
+
+Excel verisi:
+${veriMetni}`;
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    const cevap = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: istek }] }],
+            generationConfig: {
+                temperature: 0.1,
+                responseMimeType: 'application/json'
+            }
+        })
+    });
+
+    if (!cevap.ok) {
+        const txt = await cevap.text();
+        throw new Error('Gemini API hatası: ' + cevap.status + ' - ' + txt.substring(0, 200));
+    }
+
+    const data = await cevap.json();
+    const metin = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!metin) {
+        throw new Error('Gemini yanıt vermedi.');
+    }
+
+    let json;
+    try {
+        // JSON markdown bloklari icinde gelmis olabilir, temizle
+        const temiz = metin.replace(/```json\s*/g, '').replace(/```\s*$/g, '').trim();
+        json = JSON.parse(temiz);
+    } catch (e) {
+        throw new Error('Gemini geçerli JSON döndürmedi: ' + metin.substring(0, 200));
+    }
+
+    if (!Array.isArray(json)) {
+        throw new Error('Gemini liste döndürmedi.');
+    }
+
+    return json;
+}
+
+// POST /api/excel/ai-onizle - Gemini ile algila
+router.post('/ai-onizle', tokenDogrula, async (req, res) => {
+    const { dosya, tip } = req.body;
+    if (!dosya) return res.status(400).json({ hata: 'Dosya gereklidir.' });
+
+    let satirlar;
+    try { satirlar = await dosyaOku(dosya); } catch (e) { return res.status(400).json({ hata: 'Excel dosyası okunamadı.' }); }
+    if (!satirlar.length) return res.status(400).json({ hata: 'Dosya boş.' });
+
+    try {
+        const sonuclar = await geminiIleAlgila(satirlar, tip);
+        const sorunlar = [];
+        const temiz = [];
+        for (const k of sonuclar) {
+            if (tip === 'il' && !k.il_adi) { sorunlar.push({ satir: temiz.length+1, sorun: 'İl adı boş' }); continue; }
+            if (tip === 'ilce' && (!k.il_adi || !k.ilce_adi)) { sorunlar.push({ satir: temiz.length+1, sorun: 'İl veya ilçe adı boş' }); continue; }
+            temiz.push(k);
+        }
+        res.json({ toplam: temiz.length, sonuclar: temiz, sorunlar, ai: true });
+    } catch (e) {
+        console.error('AI hata:', e.message);
+        res.status(500).json({ hata: 'AI ile analiz başarısız: ' + e.message });
+    }
+});
+
+// ========== AKILLI ALGILAYICI (BEDAVA) ==========
+
 // POST /api/excel/onizle - AKILLI ALGILAMA
 router.post('/onizle', tokenDogrula, async (req, res) => {
     const { dosya, tip } = req.body;
