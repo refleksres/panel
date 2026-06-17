@@ -766,7 +766,9 @@ function basHarfleri(ad){if(!ad)return '?';return ad.split(' ').filter(Boolean).
 
 function profilBilgileriGoster(){
   document.getElementById('tb-ad').textContent = kullanici.ad_soyad || kullanici.kullanici_adi;
-  document.getElementById('tb-gorev').textContent = kullanici.gorev_adi || (kullanici.rol==='admin'?'Başkan':'Kullanıcı');
+  document.getElementById('tb-gorev').textContent =
+    kullanici.rol==='admin' ? 'Tanıtım ve Medya Başkanı'
+    : (kullanici.gorev_adi || (kullanici.rol==='yardimci' ? 'Yardımcı' : 'Kullanıcı'));
   const av = document.getElementById('tb-avatar');
   if (kullanici.profil_foto){ av.innerHTML = '<img src="'+kullanici.profil_foto+'" style="width:100%;height:100%;border-radius:99px;object-fit:cover">'; }
   else av.textContent = basHarfleri(kullanici.ad_soyad || kullanici.kullanici_adi);
@@ -1036,7 +1038,7 @@ async function kullanicilariYukle(){
     else iller=(k.iller&&k.iller.length?'<div class="il-etiketleri">'+k.iller.map(i=>'<span class="il-etiket">'+i.il_adi+'</span>').join('')+'</div>':'<span style="color:var(--outline)">İl atanmamış</span>');
 
     let gorevRozet;
-    if(k.rol==='admin') gorevRozet='<span class="rozet" style="background:#c1121f">Yönetici</span>';
+    if(k.rol==='admin') gorevRozet='<span class="rozet" style="background:#c1121f">Tanıtım ve Medya Başkanı</span>';
     else if(k.rol==='yardimci') gorevRozet='<span class="rozet" style="background:#856404">Yardımcı</span>'+(k.gorev_adi?' <span class="gorev-rozet" style="background:'+(k.renk||'#24467c')+'22;color:'+(k.renk||'#24467c')+'">'+k.gorev_adi+'</span>':'');
     else gorevRozet='<span class="gorev-rozet" style="background:'+(k.renk||'#24467c')+'22;color:'+(k.renk||'#24467c')+'">'+(k.gorev_adi||'Kullanıcı')+'</span>';
 
