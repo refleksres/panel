@@ -17,7 +17,18 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--on-surface);display:flex;min-height:100vh}
 a{text-decoration:none;color:inherit}
-.sidebar{position:fixed;left:0;top:0;height:100%;width:248px;background:var(--primary);color:var(--on-primary);display:flex;flex-direction:column;z-index:50}
+.sidebar{position:fixed;left:0;top:0;height:100%;width:248px;background:var(--primary);color:var(--on-primary);display:flex;flex-direction:column;z-index:60;transition:transform .25s ease;will-change:transform}
+.sidebar.kapali{transform:translateX(-100%)}
+.sidebar-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.4);z-index:55;display:none;opacity:0;transition:opacity .25s}
+.sidebar-overlay.aktif{display:block;opacity:1}
+/* Topbar'da hamburger butonu */
+.hamburger-btn{background:transparent;border:1px solid var(--outline-variant);border-radius:10px;width:42px;height:42px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--primary);transition:.15s;flex-shrink:0}
+.hamburger-btn:hover{background:var(--surface-low);border-color:var(--primary)}
+.hamburger-btn svg{width:22px;height:22px;fill:currentColor}
+/* Sidebar kapali iken */
+.sb-toggle{position:absolute;top:14px;right:14px;width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.15);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.sb-toggle:hover{background:rgba(255,255,255,.25)}
+.sb-toggle svg{width:18px;height:18px;fill:currentColor}
 .sb-marka{padding:22px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.08)}
 .sb-marka .ikon{width:40px;height:40px;background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .sb-marka .ikon svg{width:24px;height:24px;fill:var(--primary)}
@@ -31,7 +42,7 @@ a{text-decoration:none;color:inherit}
 .sb-alt button{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:#ffb4ab;padding:11px 14px;border-radius:10px;cursor:pointer;font-size:14px;font-family:inherit}
 .sb-alt button svg{width:20px;height:20px;fill:currentColor}
 .sb-alt button:hover{background:rgba(255,180,171,.12)}
-.main{margin-left:248px;flex:1;display:flex;flex-direction:column;min-height:100vh;width:calc(100% - 248px)}
+.main{margin-left:0;flex:1;display:flex;flex-direction:column;min-height:100vh;width:100%}
 .topbar{height:64px;background:var(--surface);border-bottom:1px solid var(--outline-variant);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:40}
 .topbar .sol h2{font-size:16px;font-weight:700;color:var(--primary)}
 .topbar .sol p{font-size:12px;color:var(--secondary)}
@@ -172,7 +183,10 @@ tr:hover td{background:var(--surface-low)}
 .bildirim-temizle-btn:hover{text-decoration:underline}
 .bildirim-liste{overflow-y:auto;max-height:430px;padding:6px}
 .bildirim-bos{text-align:center;color:var(--outline);padding:30px 16px;font-size:13px}
-.bildirim-kart{padding:12px 14px;border-radius:10px;cursor:pointer;border-left:3px solid transparent;transition:.15s;margin-bottom:3px}
+.bildirim-kart{padding:12px 14px;border-radius:10px;cursor:pointer;border-left:3px solid transparent;transition:.15s;margin-bottom:3px;position:relative}
+.bildirim-kart .b-sil{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:transparent;border:none;color:var(--outline);cursor:pointer;font-size:18px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s}
+.bildirim-kart:hover .b-sil{opacity:1}
+.bildirim-kart .b-sil:hover{background:#fee2e2;color:#c1121f}
 .bildirim-kart:hover{background:var(--surface-low)}
 .bildirim-kart.okunmamis{background:#eef3ff;border-left-color:var(--primary)}
 .bildirim-kart.okunmamis:hover{background:#dfe7fb}
@@ -234,6 +248,12 @@ tr:hover td{background:var(--surface-low)}
 .sohbet-baslik button:hover{background:rgba(255,255,255,.15)}
 .sohbet-icerik{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--surface-low)}
 .s-mesaj{max-width:78%;padding:8px 12px;border-radius:14px;font-size:13px;line-height:1.4;word-wrap:break-word}
+.s-mesaj-wrap{display:flex;align-items:center;gap:6px;position:relative}
+.s-mesaj-wrap.benim-wrap{justify-content:flex-end}
+.s-mesaj-wrap.karsi-wrap{justify-content:flex-start}
+.s-mesaj-sil{width:22px;height:22px;border-radius:50%;background:transparent;border:none;color:var(--outline);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;opacity:0;transition:.15s;flex-shrink:0}
+.s-mesaj-wrap:hover .s-mesaj-sil{opacity:1}
+.s-mesaj-sil:hover{background:#fee2e2;color:#c1121f}
 .s-mesaj.benim{align-self:flex-end;background:var(--primary);color:#fff;border-bottom-right-radius:4px}
 .s-mesaj.karsi{align-self:flex-start;background:#fff;color:var(--on-surface);border:1px solid var(--outline-variant);border-bottom-left-radius:4px}
 .s-mesaj .s-zaman{font-size:9px;opacity:.7;margin-top:2px}
@@ -257,17 +277,13 @@ tr:hover td{background:var(--surface-low)}
 
 /* ========== MOBIL UYUM ========== */
 @media (max-width: 900px){
-  .ana{flex-direction:column}
-  .yan-menu{width:100%;height:auto;flex-direction:row;overflow-x:auto;padding:8px;position:sticky;top:0;z-index:50}
-  .yan-menu .logo{display:none}
-  .yan-menu button{flex-shrink:0;flex-direction:column;font-size:11px;padding:8px;gap:4px;min-width:70px}
-  .yan-menu button svg{width:20px;height:20px}
-  .yan-menu button span{font-size:10px}
   .icerik{padding:14px}
   .topbar{padding:0 14px;height:56px}
   .topbar .sol h2{font-size:14px}
   .topbar .sol p{font-size:10px}
   .topbar .profil-chip .ad{display:none}
+  .hamburger-btn{width:38px;height:38px}
+  .hamburger-btn svg{width:20px;height:20px}
   .bildirim-panel{width:calc(100vw - 28px);right:-90px;max-width:380px}
   .kart-grup{grid-template-columns:1fr 1fr;gap:10px}
   .kart{padding:14px}
@@ -375,7 +391,10 @@ tr:hover td{background:var(--surface-low)}
 </style>
 </head>
 <body>
-<aside class="sidebar">
+<aside class="sidebar kapali" id="sidebar">
+  <button class="sb-toggle" onclick="sidebarTogla()" title="Menüyü kapat" aria-label="Menüyü kapat">
+    <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+  </button>
   <div class="sb-marka">
     <div class="ikon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7v10l10 5 10-5V7L12 2zm0 2.2L19.5 8 12 11.8 4.5 8 12 4.2zM4 9.3l7 3.5v6.9l-7-3.5V9.3zm9 10.4v-6.9l7-3.5v6.9l-7 3.5z"/></svg></div>
     <h1>Tanıtım ve Medya Paneli</h1>
@@ -395,8 +414,15 @@ tr:hover td{background:var(--surface-low)}
   </div>
 </aside>
 <div class="main">
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="sidebarTogla()"></div>
+
   <header class="topbar">
-    <div class="sol"><h2>Tanıtım ve Medya Paneli</h2><p>Gençlik Kolları</p></div>
+    <div style="display:flex;align-items:center;gap:14px;min-width:0;flex:1">
+      <button class="hamburger-btn" onclick="sidebarTogla()" title="Menü" aria-label="Menüyü aç">
+        <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+      </button>
+      <div class="sol" style="min-width:0"><h2>Tanıtım ve Medya Paneli</h2><p>Gençlik Kolları</p></div>
+    </div>
     <div class="sag">
       <div class="bildirim-wrap" id="bildirim-wrap">
         <button class="bildirim-btn" onclick="bildirimPanelTogla()" title="Bildirimler">
@@ -406,7 +432,10 @@ tr:hover td{background:var(--surface-low)}
         <div class="bildirim-panel" id="bildirim-panel">
           <div class="bildirim-baslik">
             <h3>Bildirimler</h3>
-            <button onclick="bildirimleriTumOkundu()" class="bildirim-temizle-btn">Tümünü okundu yap</button>
+            <div style="display:flex;gap:4px">
+              <button onclick="bildirimleriTumOkundu()" class="bildirim-temizle-btn" title="Tümünü okundu yap">✓ Okundu</button>
+              <button onclick="bildirimleriTumSil()" class="bildirim-temizle-btn" style="color:#c1121f" title="Tümünü sil">🗑 Sil</button>
+            </div>
           </div>
           <div class="bildirim-liste" id="bildirim-liste">
             <p class="bildirim-bos">Henüz bildirim yok.</p>
@@ -1359,6 +1388,38 @@ async function excelDisaAktar(tip){
 function modalKapat(id){document.getElementById(id).classList.remove('aktif');}
 function cikisYap(){localStorage.clear();window.location.href='/';}
 
+/* SIDEBAR AC/KAPA */
+function sidebarTogla(){
+  const sb = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const kapali = sb.classList.toggle('kapali');
+  overlay.classList.toggle('aktif', !kapali);
+  try { localStorage.setItem('sidebarKapali', kapali ? '1' : '0'); } catch(e){}
+}
+// Sayfa acilirken durumu uygula - VARSAYILAN: KAPALI
+(function(){
+  try {
+    const durum = localStorage.getItem('sidebarKapali');
+    // Yoksa veya 1 ise kapali kalsin (zaten HTML'de class="kapali" var)
+    if (durum === '0') {
+      document.getElementById('sidebar').classList.remove('kapali');
+      document.getElementById('sidebar-overlay').classList.add('aktif');
+    }
+  } catch(e){}
+})();
+// Sidebar'daki bir butona tiklayinca sidebar otomatik kapansin (sayfa degisecek)
+document.addEventListener('DOMContentLoaded', () => {
+  const navBtns = document.querySelectorAll('.sb-nav button, .sb-alt button');
+  navBtns.forEach(b => {
+    b.addEventListener('click', () => {
+      const sb = document.getElementById('sidebar');
+      if (!sb.classList.contains('kapali')) {
+        setTimeout(() => sidebarTogla(), 150);
+      }
+    });
+  });
+});
+
 /* ========== BILDIRIMLER ========== */
 let bildirimSonId = 0;
 let bildirimIntervalId = null;
@@ -1408,7 +1469,8 @@ async function bildirimleriYenile(ilkYukleme){
         k.className = 'bildirim-kart' + (b.okundu ? '' : ' okunmamis');
         const tarih = new Date((b.olusturulma_tarihi||'').replace(' ','T')+'Z');
         const tarihStr = isNaN(tarih) ? '' : tarih.toLocaleDateString('tr-TR', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
-        k.innerHTML = '<div class="b-baslik">'+b.baslik+'</div>'+
+        k.innerHTML = '<button class="b-sil" onclick="event.stopPropagation();bildirimSil('+b.id+')" title="Sil">×</button>'+
+          '<div class="b-baslik">'+b.baslik+'</div>'+
           (b.icerik?'<div class="b-icerik">'+b.icerik+'</div>':'')+
           '<div class="b-tarih">'+tarihStr+'</div>';
         k.onclick = async () => {
@@ -1454,6 +1516,18 @@ async function bildirimleriTumOkundu(){
   await apicagir('/api/bildirimler/okundu','PUT');
   bildirimleriYenile(false);
   toast('Tüm bildirimler okundu olarak işaretlendi.');
+}
+
+async function bildirimSil(id){
+  await apicagir('/api/bildirimler/'+id,'DELETE');
+  bildirimleriYenile(false);
+}
+
+async function bildirimleriTumSil(){
+  if(!confirm('Tüm bildirimleri silmek istediğinize emin misiniz?')) return;
+  await apicagir('/api/bildirimler','DELETE');
+  bildirimleriYenile(false);
+  toast('Tüm bildirimler silindi.');
 }
 
 // Panel dışına tıklayınca kapat
@@ -1575,6 +1649,7 @@ async function sohbetAc(kisiId, kisiAdi, renk, sonGiris){
         '<div class="b-durum" id="sohbet-durum-'+kisiId+'">'+sonGorulduMetin(sonGiris)+'</div>'+
       '</div>'+
       '<div class="b-aksiyon">'+
+        '<button onclick="event.stopPropagation();sohbetSil('+kisiId+',\''+kisiAdi.replace(/\x27/g,"\\\x27")+'\')" title="Sohbeti sil">🗑</button>'+
         '<button onclick="event.stopPropagation();sohbetKucult('+kisiId+')" title="Küçült">−</button>'+
         '<button onclick="event.stopPropagation();sohbetKapat('+kisiId+')" title="Kapat">✕</button>'+
       '</div>'+
@@ -1626,10 +1701,13 @@ async function sohbetMesajlariYukle(kisiId, sessizce){
 function sohbetMesajEkle(container, msj, kisiId){
   const benim = msj.gonderen_id === kullanici.id;
   const d = document.createElement('div');
-  d.className = 's-mesaj ' + (benim ? 'benim' : 'karsi');
+  d.className = 's-mesaj-wrap ' + (benim ? 'benim-wrap' : 'karsi-wrap');
   d.dataset.id = msj.id;
   const t = new Date((msj.tarih||'').replace(' ','T')+'Z').toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-  d.innerHTML = '<div>'+msj.metin.replace(/</g,'&lt;')+'</div><div class="s-zaman">'+t+'</div>';
+  d.innerHTML = '<div class="s-mesaj '+(benim?'benim':'karsi')+'">'+
+    '<div>'+msj.metin.replace(/</g,'&lt;')+'</div><div class="s-zaman">'+t+'</div>'+
+    '</div>'+
+    '<button class="s-mesaj-sil" onclick="mesajSil('+msj.id+','+kisiId+')" title="Mesajı sil">×</button>';
   // Yaziyor satiri varsa onun ustune ekle
   const yz = container.querySelector('.yaziyor-gosterge');
   if(yz) container.insertBefore(d, yz);
@@ -1691,6 +1769,27 @@ function sohbetKapat(kisiId){
   if(!acikSohbetler[kisiId]) return;
   acikSohbetler[kisiId].pencere.remove();
   delete acikSohbetler[kisiId];
+}
+
+async function sohbetSil(kisiId, kisiAdi){
+  if(!confirm(kisiAdi + ' ile olan tüm sohbeti silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz.')) return;
+  const r = await apicagir('/api/ozel-mesaj/sohbet/'+kisiId,'DELETE');
+  if(r.hata){toast(r.hata);return;}
+  // Pencereyi kapat
+  sohbetKapat(kisiId);
+  toast('Sohbet silindi.');
+  chatBalonYenile();
+}
+
+async function mesajSil(mesajId, kisiId){
+  if(!confirm('Bu mesajı silmek istediğinize emin misiniz?')) return;
+  const r = await apicagir('/api/ozel-mesaj/mesaj/'+mesajId,'DELETE');
+  if(r.hata){toast(r.hata);return;}
+  // Sohbeti yenile
+  if(acikSohbetler[kisiId]){
+    acikSohbetler[kisiId].son_mesaj_id = 0;
+    await sohbetMesajlariYukle(kisiId);
+  }
 }
 
 function sohbetOdaklan(kisiId){
