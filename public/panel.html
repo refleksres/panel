@@ -462,7 +462,8 @@ tr:hover td{background:var(--surface-low)}
       <div class="kartlar">
         <div class="kart"><div class="ust"><div><h3>Sorumlu İl</h3><div class="sayi" id="kart-il">-</div></div><div class="ikon-kutu" style="background:var(--secondary-container)"><svg viewBox="0 0 24 24" style="fill:var(--primary)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div></div></div>
         <div class="kart"><div class="ust"><div><h3>Toplam İlçe</h3><div class="sayi" id="kart-ilce">-</div></div><div class="ikon-kutu" style="background:var(--success-bg)"><svg viewBox="0 0 24 24" style="fill:var(--success)"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2z"/></svg></div></div></div>
-        <div class="kart"><div class="ust"><div><h3>Başkan Atanmış</h3><div class="sayi" id="kart-dolu">-</div></div><div class="ikon-kutu" style="background:#fff3cd"><svg viewBox="0 0 24 24" style="fill:#856404"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div></div></div>
+        <div class="kart"><div class="ust"><div><h3>İl Başkanı Atanmış</h3><div class="sayi" id="kart-dolu">-</div></div><div class="ikon-kutu" style="background:#fff3cd"><svg viewBox="0 0 24 24" style="fill:#856404"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div></div></div>
+        <div class="kart"><div class="ust"><div><h3>İlçe Başkanı Atanmış</h3><div class="sayi" id="kart-dolu-ilce">-</div></div><div class="ikon-kutu" style="background:#e0e7ff"><svg viewBox="0 0 24 24" style="fill:#3730a3"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div></div></div>
       </div>
       <div class="harita-kutu">
         <div id="harita-yer"><p class="bos-mesaj" id="harita-mesaj">Harita yükleniyor...</p></div>
@@ -470,12 +471,6 @@ tr:hover td{background:var(--surface-low)}
           <span><i class="renk-kutu" style="background:#00193c"></i> Başkan bilgisi girilmiş</span>
           <span><i class="renk-kutu" style="background:#6f8ec0"></i> Sorumlu olduğunuz iller</span>
           <span><i class="renk-kutu" style="background:#d4dae6"></i> Diğer iller</span>
-        </div>
-        <div class="kart-grup" style="grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px">
-          <div class="kart"><div class="kart-etiket">Toplam İl</div><div class="deger" id="ozet-il">-</div></div>
-          <div class="kart"><div class="kart-etiket">Toplam İlçe</div><div class="deger" id="ozet-ilce">-</div></div>
-          <div class="kart"><div class="kart-etiket">İl Başkanı Atanan</div><div class="deger" id="ozet-baskanli-il" style="color:var(--primary)">-</div></div>
-          <div class="kart"><div class="kart-etiket">İlçe Başkanı Atanan</div><div class="deger" id="ozet-baskanli-ilce" style="color:var(--primary)">-</div></div>
         </div>
       </div>
       <!-- Harita altinda ilce paneli -->
@@ -877,18 +872,17 @@ async function haritayiYukle(){
   if(!Array.isArray(haritaVeri))return;
   const erisimli = haritaVeri.filter(i=>i.erisim);
   document.getElementById('kart-il').textContent = kullanici.rol==='admin'?haritaVeri.length:erisimli.length;
-  document.getElementById('kart-dolu').textContent = haritaVeri.filter(i=>i.baskan_ad_soyad).length;
   let ti=0; erisimli.forEach(i=>ti+=(i.ilce_sayisi||0));
   document.getElementById('kart-ilce').textContent = ti;
+  // İstatistik API'den il başkan ve ilçe başkan sayılarını al
   try{
     const ist=await apicagir('/api/iller/istatistik');
-    document.getElementById('ozet-il').textContent=ist.toplamIl;
-    document.getElementById('ozet-ilce').textContent=ist.toplamIlce;
-    const eIlce = document.getElementById('ozet-baskanli-il');
-    if (eIlce) eIlce.textContent = ist.baskanliIl != null ? ist.baskanliIl : '-';
-    const eIlceB = document.getElementById('ozet-baskanli-ilce');
+    document.getElementById('kart-dolu').textContent = ist.baskanliIl != null ? ist.baskanliIl : haritaVeri.filter(i=>i.baskan_ad_soyad).length;
+    const eIlceB = document.getElementById('kart-dolu-ilce');
     if (eIlceB) eIlceB.textContent = ist.baskanliIlce != null ? ist.baskanliIlce : '-';
-  }catch(e){}
+  }catch(e){
+    document.getElementById('kart-dolu').textContent = haritaVeri.filter(i=>i.baskan_ad_soyad).length;
+  }
   if(!haritaYuklendi){
     try{
       const r=await fetch('/turkiye.svg');
