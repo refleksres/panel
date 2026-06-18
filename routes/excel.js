@@ -274,7 +274,8 @@ router.post('/ai-onizle', tokenDogrula, async (req, res) => {
         const sonuclar = await geminiIleAlgila(satirlar, tip);
         const sorunlar = [];
         const temiz = [];
-        for (const k of sonuclar) {
+        for (const ham of sonuclar) {
+            const k = kayitFormatla(ham);
             if (tip === 'il' && !k.il_adi) { sorunlar.push({ satir: temiz.length+1, sorun: 'İl adı boş' }); continue; }
             if (tip === 'ilce' && (!k.il_adi || !k.ilce_adi)) { sorunlar.push({ satir: temiz.length+1, sorun: 'İl veya ilçe adı boş' }); continue; }
             temiz.push(k);
@@ -370,7 +371,7 @@ router.post('/onizle', tokenDogrula, async (req, res) => {
         }
         if (tip === 'il' && !kayit.il_adi) { sorunlar.push({ satir: r+1, sorun: 'İl adı boş veya algılanamadı' }); continue; }
         if (tip === 'ilce' && (!kayit.il_adi || !kayit.ilce_adi)) { sorunlar.push({ satir: r+1, sorun: 'İl veya ilçe adı boş' }); continue; }
-        sonuclar.push(kayit);
+        sonuclar.push(kayitFormatla(kayit));
     }
     res.json({ toplam: sonuclar.length, sonuclar, sorunlar, taninanSutunlar });
 });
@@ -385,7 +386,7 @@ router.post('/uygula', tokenDogrula, (req, res) => {
         izinliIller = new Set(db.prepare('SELECT il_id FROM kullanici_iller WHERE kullanici_id = ?').all(req.kullanici.id).map(r => r.il_id));
     }
 
-    let basarili = 0;
+    let basarili = 0, ilceBasarili = 0, atlanan = 0;
     const ilBul = db.prepare('SELECT id FROM iller WHERE il_adi = ? COLLATE NOCASE');
     const tumIller = db.prepare('SELECT id, il_adi FROM iller').all();
     function ilEslestir(ad) {
@@ -394,38 +395,56 @@ router.post('/uygula', tokenDogrula, (req, res) => {
         const bul = tumIller.find(i => norm(i.il_adi) === na);
         return bul ? bul.id : null;
     }
+    // Mevcut ilceyi bul (yeni ekleme yapma)
+    function ilceEslestir(ilId, ilceAdi) {
+        if (!ilId || !ilceAdi) return null;
+        const tam = db.prepare('SELECT id FROM ilceler WHERE il_id=? AND ilce_adi=? COLLATE NOCASE').get(ilId, String(ilceAdi).trim());
+        if (tam) return tam.id;
+        const na = norm(ilceAdi);
+        const tumIlceler = db.prepare('SELECT id, ilce_adi FROM ilceler WHERE il_id=?').all(ilId);
+        const bul = tumIlceler.find(i => norm(i.ilce_adi) === na);
+        return bul ? bul.id : null;
+    }
 
     for (const ham of sonuclar) {
         const k = kayitFormatla(ham);
         try {
-            if (tip === 'il') {
-                const ilId = ilEslestir(k.il_adi); if (!ilId) continue;
-                if (izinliIller && !izinliIller.has(ilId)) continue;
+            const ilId = ilEslestir(k.il_adi);
+            if (!ilId) { atlanan++; continue; }
+            if (izinliIller && !izinliIller.has(ilId)) { atlanan++; continue; }
+
+            // Kayitta ilce_adi varsa: ILCEYI guncelle (il'e dokunma)
+            if (k.ilce_adi && String(k.ilce_adi).trim()) {
+                const ilceId = ilceEslestir(ilId, k.ilce_adi);
+                if (ilceId) {
+                    db.prepare(`UPDATE ilceler SET
+                        baskan_ad_soyad=COALESCE(?,baskan_ad_soyad), baskan_telefon=COALESCE(?,baskan_telefon),
+                        baskan_tc=COALESCE(?,baskan_tc), instagram_url=COALESCE(?,instagram_url),
+                        twitter_url=COALESCE(?,twitter_url), facebook_url=COALESCE(?,facebook_url), tiktok_url=COALESCE(?,tiktok_url)
+                        WHERE id=?`).run(k.baskan_ad_soyad||null,k.baskan_telefon||null,k.baskan_tc||null,k.instagram_url||null,k.twitter_url||null,k.facebook_url||null,k.tiktok_url||null,ilceId);
+                    ilceBasarili++;
+                } else {
+                    // Mevcut ilce bulunamadi - YENI EKLEMIYORUZ, sadece atla
+                    atlanan++;
+                }
+            } else {
+                // Sadece il bilgisi - il'i guncelle
                 db.prepare(`UPDATE iller SET
                     baskan_ad_soyad=COALESCE(?,baskan_ad_soyad), baskan_telefon=COALESCE(?,baskan_telefon),
                     baskan_tc=COALESCE(?,baskan_tc), instagram_url=COALESCE(?,instagram_url),
                     twitter_url=COALESCE(?,twitter_url), facebook_url=COALESCE(?,facebook_url), tiktok_url=COALESCE(?,tiktok_url)
                     WHERE id=?`).run(k.baskan_ad_soyad||null,k.baskan_telefon||null,k.baskan_tc||null,k.instagram_url||null,k.twitter_url||null,k.facebook_url||null,k.tiktok_url||null,ilId);
                 basarili++;
-            } else {
-                const ilId = ilEslestir(k.il_adi); if (!ilId) continue;
-                if (izinliIller && !izinliIller.has(ilId)) continue;
-                const mevcut = db.prepare('SELECT id FROM ilceler WHERE il_id=? AND ilce_adi=? COLLATE NOCASE').get(ilId, k.ilce_adi);
-                if (mevcut) {
-                    db.prepare(`UPDATE ilceler SET
-                        baskan_ad_soyad=COALESCE(?,baskan_ad_soyad), baskan_telefon=COALESCE(?,baskan_telefon),
-                        baskan_tc=COALESCE(?,baskan_tc), instagram_url=COALESCE(?,instagram_url),
-                        twitter_url=COALESCE(?,twitter_url), facebook_url=COALESCE(?,facebook_url), tiktok_url=COALESCE(?,tiktok_url)
-                        WHERE id=?`).run(k.baskan_ad_soyad||null,k.baskan_telefon||null,k.baskan_tc||null,k.instagram_url||null,k.twitter_url||null,k.facebook_url||null,k.tiktok_url||null,mevcut.id);
-                } else {
-                    db.prepare(`INSERT INTO ilceler (il_id,ilce_adi,baskan_ad_soyad,baskan_telefon,baskan_tc,instagram_url,twitter_url,facebook_url,tiktok_url)
-                        VALUES (?,?,?,?,?,?,?,?,?)`).run(ilId,k.ilce_adi,k.baskan_ad_soyad||null,k.baskan_telefon||null,k.baskan_tc||null,k.instagram_url||null,k.twitter_url||null,k.facebook_url||null,k.tiktok_url||null);
-                }
-                basarili++;
             }
-        } catch (e) { /* atla */ }
+        } catch (e) { atlanan++; }
     }
-    res.json({ mesaj: 'İçe aktarma tamamlandı.', basarili });
+    let mesaj = '';
+    const parcalar = [];
+    if (basarili > 0) parcalar.push(basarili + ' il güncellendi');
+    if (ilceBasarili > 0) parcalar.push(ilceBasarili + ' ilçe güncellendi');
+    if (atlanan > 0) parcalar.push(atlanan + ' kayıt atlandı (eşleşmeyen il/ilçe)');
+    mesaj = parcalar.length ? parcalar.join(', ') + '.' : 'Hiç kayıt güncellenmedi.';
+    res.json({ mesaj, basarili: basarili + ilceBasarili, ilceBasarili, atlanan });
 });
 
 async function excelGonder(res, satirlar, ad) {
@@ -446,51 +465,103 @@ async function excelGonder(res, satirlar, ad) {
 
 router.get('/sablon', tokenDogrula, async (req, res) => {
     const tip = req.query.tip === 'ilce' ? 'ilce' : 'il';
-    let basliklar, ornek;
+    let basliklar, satirlar;
     if (tip === 'il') {
-        basliklar = ['İl Adı','Başkan Ad Soyad','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
-        ornek = ['Ordu','Ahmet Yılmaz','05001112233','','https://instagram.com/ornek','','',''];
+        basliklar = ['Plaka','İl Adı','İlçe Adı','Tanıtım ve Medya Başkanı','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
+        satirlar = [
+            basliklar,
+            ['52', 'Ordu', '', 'Ahmet YILMAZ', '0555-123-45-67', '', 'https://instagram.com/ornek', '', '', ''],
+            ['', 'Ordu', 'Altınordu', 'Mehmet DEMİR', '0555-111-22-33', '', '', '', '', ''],
+            ['', 'Ordu', 'Ünye', 'Hasan KARA', '0555-444-55-66', '', '', '', '', '']
+        ];
     } else {
-        basliklar = ['İl Adı','İlçe Adı','Başkan Ad Soyad','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
-        ornek = ['Ordu','Altınordu','Mehmet Demir','05001112233','','','','',''];
+        basliklar = ['İl Adı','İlçe Adı','Tanıtım ve Medya Başkanı','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
+        satirlar = [
+            basliklar,
+            ['Ordu', 'Altınordu', 'Mehmet DEMİR', '0555-111-22-33', '', '', '', '', ''],
+            ['Ordu', 'Ünye', 'Hasan KARA', '0555-444-55-66', '', '', '', '', '']
+        ];
     }
-    await excelGonder(res, [basliklar, ornek], 'sablon-' + tip);
+    await excelGonder(res, satirlar, 'sablon-' + tip);
 });
 
 router.get('/disa-aktar', tokenDogrula, async (req, res) => {
-    const tip = req.query.tip === 'ilce' ? 'ilce' : 'il';
+    const tip = req.query.tip === 'ilce' ? 'ilce' :
+                req.query.tip === 'birlesik' ? 'birlesik' : 'il';
+    const ilIdsRaw = req.query.il_ids || '';  // ornek: "1,5,12"
+    const secimIller = ilIdsRaw.split(',').map(s => parseInt(s)).filter(n => n > 0);
+
     let izinliIller = null;
     if (req.kullanici.rol === 'kullanici') {
         izinliIller = db.prepare('SELECT il_id FROM kullanici_iller WHERE kullanici_id = ?').all(req.kullanici.id).map(r => r.il_id);
     }
+
+    // Filtre uygulama: secim varsa onu kullan, yoksa izinli, yoksa hepsi
+    function ilIdFiltresi() {
+        if (secimIller.length) {
+            if (izinliIller) {
+                // Kullanici hem secim hem izin var - kesisim
+                return secimIller.filter(id => izinliIller.includes(id));
+            }
+            return secimIller;
+        }
+        return izinliIller; // null veya array
+    }
+
+    const filtre = ilIdFiltresi();
+
     if (tip === 'il') {
         let sorgu = 'SELECT plaka, il_adi, baskan_ad_soyad, baskan_telefon, baskan_tc, instagram_url, twitter_url, facebook_url, tiktok_url FROM iller';
         let params = [];
         let veri;
-        if (izinliIller) {
-            if (!izinliIller.length) veri = [];
-            else { sorgu += ' WHERE id IN ('+izinliIller.map(()=>'?').join(',')+')'; params = izinliIller; }
+        if (filtre !== null) {
+            if (!filtre.length) veri = [];
+            else { sorgu += ' WHERE id IN ('+filtre.map(()=>'?').join(',')+')'; params = filtre; }
         }
         sorgu += ' ORDER BY plaka';
         if (veri === undefined) veri = db.prepare(sorgu).all(...params);
-        const basliklar = ['Plaka','İl Adı','Başkan Ad Soyad','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
+        const basliklar = ['Plaka','İl Adı','Tanıtım ve Medya Başkanı','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
         const satirlar = [basliklar];
         veri.forEach(r => satirlar.push([r.plaka, r.il_adi, r.baskan_ad_soyad, r.baskan_telefon, r.baskan_tc, r.instagram_url, r.twitter_url, r.facebook_url, r.tiktok_url]));
-        return await excelGonder(res, satirlar, 'iller');
-    } else {
+        return await excelGonder(res, satirlar, 'iller-' + (secimIller.length === 1 ? 'tekil' : 'liste'));
+    } else if (tip === 'ilce') {
         let sorgu = `SELECT i.il_adi, c.ilce_adi, c.baskan_ad_soyad, c.baskan_telefon, c.baskan_tc, c.instagram_url, c.twitter_url, c.facebook_url, c.tiktok_url FROM ilceler c JOIN iller i ON c.il_id = i.id`;
         let params = [];
         let veri;
-        if (izinliIller) {
-            if (!izinliIller.length) veri = [];
-            else { sorgu += ' WHERE c.il_id IN ('+izinliIller.map(()=>'?').join(',')+')'; params = izinliIller; }
+        if (filtre !== null) {
+            if (!filtre.length) veri = [];
+            else { sorgu += ' WHERE c.il_id IN ('+filtre.map(()=>'?').join(',')+')'; params = filtre; }
         }
         sorgu += ' ORDER BY i.il_adi, c.ilce_adi';
         if (veri === undefined) veri = db.prepare(sorgu).all(...params);
-        const basliklar = ['İl Adı','İlçe Adı','Başkan Ad Soyad','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
+        const basliklar = ['İl Adı','İlçe Adı','Tanıtım ve Medya Başkanı','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
         const satirlar = [basliklar];
         veri.forEach(r => satirlar.push([r.il_adi, r.ilce_adi, r.baskan_ad_soyad, r.baskan_telefon, r.baskan_tc, r.instagram_url, r.twitter_url, r.facebook_url, r.tiktok_url]));
-        return await excelGonder(res, satirlar, 'ilceler');
+        return await excelGonder(res, satirlar, 'ilceler-' + (secimIller.length === 1 ? 'tekil' : 'liste'));
+    } else {
+        // BIRLESIK: hem il hem ilceleri
+        let ilSorgu = 'SELECT id, plaka, il_adi, baskan_ad_soyad, baskan_telefon, baskan_tc, instagram_url, twitter_url, facebook_url, tiktok_url FROM iller';
+        let ilParams = [];
+        let iller;
+        if (filtre !== null) {
+            if (!filtre.length) iller = [];
+            else { ilSorgu += ' WHERE id IN ('+filtre.map(()=>'?').join(',')+')'; ilParams = filtre; }
+        }
+        ilSorgu += ' ORDER BY plaka';
+        if (iller === undefined) iller = db.prepare(ilSorgu).all(...ilParams);
+
+        const basliklar = ['Plaka','İl Adı','İlçe Adı','Tanıtım ve Medya Başkanı','Telefon','TC Kimlik No','Instagram','Twitter','Facebook','TikTok'];
+        const satirlar = [basliklar];
+        for (const il of iller) {
+            // Once il satiri (ilce_adi bos)
+            satirlar.push([il.plaka, il.il_adi, '', il.baskan_ad_soyad, il.baskan_telefon, il.baskan_tc, il.instagram_url, il.twitter_url, il.facebook_url, il.tiktok_url]);
+            // Sonra o ilin ilceleri
+            const ilceler = db.prepare(`SELECT ilce_adi, baskan_ad_soyad, baskan_telefon, baskan_tc, instagram_url, twitter_url, facebook_url, tiktok_url FROM ilceler WHERE il_id = ? ORDER BY ilce_adi`).all(il.id);
+            for (const c of ilceler) {
+                satirlar.push(['', il.il_adi, c.ilce_adi, c.baskan_ad_soyad, c.baskan_telefon, c.baskan_tc, c.instagram_url, c.twitter_url, c.facebook_url, c.tiktok_url]);
+            }
+        }
+        return await excelGonder(res, satirlar, 'iller-ve-ilceler-' + (secimIller.length === 1 ? 'tekil' : 'liste'));
     }
 });
 

@@ -46,10 +46,25 @@ router.get('/harita', tokenDogrula, (req, res) => {
 
 // GET /api/iller/istatistik -> ozet sayilar
 router.get('/istatistik', tokenDogrula, (req, res) => {
+    // Kullanici ise sadece kendi atanan illeri sayalim
+    if (req.kullanici.rol === 'kullanici') {
+        const izinli = kullanicininIlleri(req.kullanici.id);
+        if (!izinli.length) {
+            return res.json({ toplamIl: 0, toplamIlce: 0, baskanliIl: 0, baskanliIlce: 0 });
+        }
+        const phs = izinli.map(()=>'?').join(',');
+        const toplamIl = izinli.length;
+        const toplamIlce = db.prepare(`SELECT COUNT(*) s FROM ilceler WHERE il_id IN (${phs})`).get(...izinli).s;
+        const baskanliIl = db.prepare(`SELECT COUNT(*) s FROM iller WHERE id IN (${phs}) AND baskan_ad_soyad IS NOT NULL AND baskan_ad_soyad != ''`).get(...izinli).s;
+        const baskanliIlce = db.prepare(`SELECT COUNT(*) s FROM ilceler WHERE il_id IN (${phs}) AND baskan_ad_soyad IS NOT NULL AND baskan_ad_soyad != ''`).get(...izinli).s;
+        return res.json({ toplamIl, toplamIlce, baskanliIl, baskanliIlce });
+    }
+    // Admin / yardimci - tum sistem
     const toplamIl = db.prepare('SELECT COUNT(*) s FROM iller').get().s;
     const toplamIlce = db.prepare('SELECT COUNT(*) s FROM ilceler').get().s;
     const baskanliIl = db.prepare("SELECT COUNT(*) s FROM iller WHERE baskan_ad_soyad IS NOT NULL AND baskan_ad_soyad != ''").get().s;
-    res.json({ toplamIl, toplamIlce, baskanliIl });
+    const baskanliIlce = db.prepare("SELECT COUNT(*) s FROM ilceler WHERE baskan_ad_soyad IS NOT NULL AND baskan_ad_soyad != ''").get().s;
+    res.json({ toplamIl, toplamIlce, baskanliIl, baskanliIlce });
 });
 
 // GET /api/iller/:id  -> tek il detayi (yetki kontrollu)
